@@ -10,8 +10,8 @@ import com.nhaarman.mockitokotlin2.whenever
 import io.reactivex.rxjava3.core.Observable.just
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.schedulers.TestScheduler
-import junit.framework.Assert.assertEquals
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -50,12 +50,14 @@ class MainViewModelTest {
         whenever(scheduleProvider.io()).thenReturn(testScheduler)
         whenever(scheduleProvider.mainThread()).thenReturn(testScheduler)
 
+        val query = "kopi"
         val venues = listOf(
             VenueViewObject("abc", "warung", "10.0")
         )
-        whenever(useCase.execute("kopi")).thenReturn(Single.just(venues))
 
-        viewModel.showVenues()
+        whenever(useCase.execute(query)).thenReturn(Single.just(venues))
+
+        viewModel.showVenues(query)
         testScheduler.triggerActions()
 
         val inOrder = inOrder(viewStateObserver)
@@ -70,11 +72,12 @@ class MainViewModelTest {
         whenever(scheduleProvider.io()).thenReturn(testScheduler)
         whenever(scheduleProvider.mainThread()).thenReturn(testScheduler)
 
-        whenever(useCase.execute("kopi")).thenReturn(
+        val query = "kopii"
+        whenever(useCase.execute(query)).thenReturn(
             Single.error(HttpException(Response.error<List<VenueViewObject>>(500, "Error".toResponseBody())))
         )
 
-        viewModel.showVenues()
+        viewModel.showVenues(query)
         testScheduler.triggerActions()
 
         val inOrder = inOrder(viewStateObserver)

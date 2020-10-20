@@ -15,8 +15,8 @@ class MainViewModel(
     val viewState = MutableLiveData<MainViewState>()
     @VisibleForTesting val compositeDisposable = CompositeDisposable()
 
-    override fun showVenues() {
-        compositeDisposable.add(useCase.execute("kopi")
+    override fun showVenues(query: String) {
+        compositeDisposable.add(useCase.execute(query)
             .subscribeOn(scheduleProvider.io())
             .observeOn(scheduleProvider.mainThread())
             .doOnSubscribe { viewState.value = MainViewState.OnLoading }

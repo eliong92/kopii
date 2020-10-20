@@ -46,7 +46,7 @@ class MainFragmentPermissionNotGrantedTest {
         } returns MutableLiveData()
 
         verify(inverse = true) {
-            viewModel.showVenues()
+            viewModel.showVenues(any())
         }
     }
 

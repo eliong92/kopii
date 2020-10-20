@@ -3,6 +3,8 @@ package com.eliong92.kopii
 import android.Manifest
 import android.content.Context
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,14 +14,18 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.eliong92.kopii.adapter.VenueAdapter
+import com.eliong92.kopii.network.IScheduleProvider
 import com.eliong92.kopii.viewModel.IMainViewModel
 import com.eliong92.kopii.viewModel.MainViewModel
 import com.eliong92.kopii.viewModel.MainViewModelProvider
 import com.eliong92.kopii.viewModel.MainViewState
 import dagger.android.support.AndroidSupportInjection
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.disposables.CompositeDisposable
 import kotlinx.android.synthetic.main.fragment_main.*
 import pub.devrel.easypermissions.AfterPermissionGranted
 import pub.devrel.easypermissions.EasyPermissions
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class MainFragment : Fragment(), EasyPermissions.PermissionCallbacks {
@@ -37,8 +43,13 @@ class MainFragment : Fragment(), EasyPermissions.PermissionCallbacks {
     @Inject
     lateinit var viewModelProvider: MainViewModelProvider
 
+    @Inject
+    lateinit var scheduler: IScheduleProvider
+
     @VisibleForTesting
     lateinit var viewModel: IMainViewModel
+
+    private val disposable = CompositeDisposable()
 
     override fun onAttach(context: Context) {
         try {
@@ -61,6 +72,7 @@ class MainFragment : Fragment(), EasyPermissions.PermissionCallbacks {
     override fun onDestroy() {
         super.onDestroy()
         viewModel.onDestroy()
+        disposable.clear()
     }
 
     override fun onRequestPermissionsResult(
@@ -96,13 +108,43 @@ class MainFragment : Fragment(), EasyPermissions.PermissionCallbacks {
         })
 
         checkLocationPermission()
+        observeSearchBox()
+    }
+
+    private fun observeSearchBox() {
+        Observable.create<String> {
+
+            searchBox.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
+                }
+
+                override fun afterTextChanged(s: Editable?) {
+                }
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    it.onNext(s.toString())
+                }
+            })
+        }
+            .debounce(500, TimeUnit.MILLISECONDS, scheduler.io())
+            .filter { it.length > 2 }
+            .observeOn(scheduler.mainThread())
+            .subscribe {
+                viewModel.showVenues(it)
+            }
+            .let {
+                disposable.add(it)
+            }
     }
 
     @AfterPermissionGranted(RC_LOCATION_PERM)
     fun checkLocationPermission() {
-        if(EasyPermissions.hasPermissions(activity as Context, LOCATION)) {
-            viewModel.showVenues()
-        } else {
+        if(!EasyPermissions.hasPermissions(activity as Context, LOCATION)) {
             EasyPermissions.requestPermissions(
                 this,
                 getString(R.string.rationale_ask),
@@ -113,7 +155,7 @@ class MainFragment : Fragment(), EasyPermissions.PermissionCallbacks {
     }
 
     override fun onPermissionsGranted(requestCode: Int, perms: MutableList<String>) {
-        viewModel.showVenues()
+
     }
 
     override fun onPermissionsDenied(requestCode: Int, perms: MutableList<String>) {
