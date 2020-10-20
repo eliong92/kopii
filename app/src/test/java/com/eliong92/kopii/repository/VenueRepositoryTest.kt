@@ -8,8 +8,7 @@ import com.eliong92.kopii.network.ApiService
 import org.junit.Before
 import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.whenever
-import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
+import io.reactivex.rxjava3.core.Single
 import org.junit.Test
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
@@ -27,7 +26,7 @@ class VenueRepositoryTest {
     }
 
     @Test
-    fun getVenues_shouldReturnVenueResponse() = runBlocking {
+    fun getVenues_shouldReturnVenueResponse() {
         val query = "query"
         val expectedResponse = VenueResponse(
             response = VenueResponse.Response(
@@ -43,20 +42,24 @@ class VenueRepositoryTest {
             clientId = "TNWXXPU1SPR50CBRH1IUVJ32U0ITMGMIARILHX2IEVLRHBML",
             clientSecret = "HFJOZ1UN1WPPSKTSVYXUM3OGRC1CYDR2LXVSDW4QDFEOY33O",
             version = "20201005",
-            near = "jakarta",
             intent = "browse",
             radius = "10000",
             query = query,
-            limit = "10"
-        )).thenReturn(expectedResponse)
+            limit = "10",
+            ll = "89.6,-8.9",
+        )).thenReturn(Single.just(expectedResponse))
 
-        val response = repository.getVenues(query)
-
-        assertEquals(expectedResponse, response)
+        repository.getVenues(
+            query = query,
+            latitude = 89.6,
+            longitude = -8.9
+        ).test()
+            .assertValue(expectedResponse)
+            .dispose()
     }
 
     @Test
-    fun getVenueDetail_shouldReturnVenueDetailResponse() = runBlocking {
+    fun getVenueDetail_shouldReturnVenueDetailResponse() {
         val id = "abc"
         val expectedResponse = VenueDetailResponse(
             response = VenueDetailResponse.Response(
@@ -72,10 +75,10 @@ class VenueRepositoryTest {
             clientId = "TNWXXPU1SPR50CBRH1IUVJ32U0ITMGMIARILHX2IEVLRHBML",
             clientSecret = "HFJOZ1UN1WPPSKTSVYXUM3OGRC1CYDR2LXVSDW4QDFEOY33O",
             version = "20201005",
-        )).thenReturn(expectedResponse)
+        )).thenReturn(Single.just(expectedResponse))
 
-        val response = repository.getVenueDetail(id)
-
-        assertEquals(expectedResponse, response)
+        repository.getVenueDetail(id).test()
+            .assertValue(expectedResponse)
+            .dispose()
     }
 }

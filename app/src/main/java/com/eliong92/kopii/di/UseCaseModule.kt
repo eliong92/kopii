@@ -1,5 +1,6 @@
 package com.eliong92.kopii.di
 
+import com.eliong92.kopii.repository.ILocationRepository
 import com.eliong92.kopii.repository.IVenueRepository
 import com.eliong92.kopii.usecase.GetVenueUseCase
 import com.eliong92.kopii.usecase.IGetVenueUseCase
@@ -12,7 +13,7 @@ class UseCaseModule {
 
     @Singleton
     @Provides
-    fun provideGetVenueUseCase(repo: IVenueRepository): IGetVenueUseCase {
-       return GetVenueUseCase(repo)
+    fun provideGetVenueUseCase(repo: IVenueRepository, locationRepo: ILocationRepository): IGetVenueUseCase {
+       return GetVenueUseCase(repo, locationRepo)
     }
 }

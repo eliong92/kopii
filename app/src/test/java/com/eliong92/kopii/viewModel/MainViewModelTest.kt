@@ -2,13 +2,15 @@ package com.eliong92.kopii.viewModel
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.Observer
-import com.eliong92.kopii.CoroutineTestRule
+import com.eliong92.kopii.network.IScheduleProvider
 import com.eliong92.kopii.usecase.IGetVenueUseCase
 import com.eliong92.kopii.usecase.VenueViewObject
 import com.nhaarman.mockitokotlin2.inOrder
 import com.nhaarman.mockitokotlin2.whenever
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.runBlockingTest
+import io.reactivex.rxjava3.core.Observable.just
+import io.reactivex.rxjava3.core.Single
+import io.reactivex.rxjava3.schedulers.TestScheduler
+import junit.framework.Assert.assertEquals
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Before
 import org.junit.Rule
@@ -19,14 +21,10 @@ import org.mockito.MockitoAnnotations
 import retrofit2.HttpException
 import retrofit2.Response
 
-@ExperimentalCoroutinesApi
 class MainViewModelTest {
 
     @get:Rule
     val rule: TestRule = InstantTaskExecutorRule()
-
-    @get:Rule
-    val coroutineTestRule = CoroutineTestRule()
 
     private lateinit var viewModel: MainViewModel
 
@@ -36,41 +34,59 @@ class MainViewModelTest {
     @Mock
     lateinit var useCase: IGetVenueUseCase
 
+    @Mock
+    lateinit var scheduleProvider: IScheduleProvider
+
     @Before
     fun setup() {
         MockitoAnnotations.initMocks(this)
-        viewModel = MainViewModel(useCase)
+        viewModel = MainViewModel(useCase, scheduleProvider)
         viewModel.viewState.observeForever(viewStateObserver)
     }
 
     @Test
     fun showVenues_whenLoadSuccess_shouldShowVenueList() {
-        coroutineTestRule.testDispatcher.runBlockingTest {
-            val venues = listOf(
-                VenueViewObject("abc", "warung", "10.0")
-            )
-            whenever(useCase.execute("kopi")).thenReturn(venues)
+        val testScheduler = TestScheduler()
+        whenever(scheduleProvider.io()).thenReturn(testScheduler)
+        whenever(scheduleProvider.mainThread()).thenReturn(testScheduler)
 
-            viewModel.showVenues()
+        val venues = listOf(
+            VenueViewObject("abc", "warung", "10.0")
+        )
+        whenever(useCase.execute("kopi")).thenReturn(Single.just(venues))
 
-            val inOrder = inOrder(viewStateObserver)
-            inOrder.verify(viewStateObserver).onChanged(MainViewState.OnLoading)
-            inOrder.verify(viewStateObserver).onChanged(MainViewState.OnSuccess(venues))
-        }
+        viewModel.showVenues()
+        testScheduler.triggerActions()
+
+        val inOrder = inOrder(viewStateObserver)
+        inOrder.verify(viewStateObserver).onChanged(MainViewState.OnLoading)
+        inOrder.verify(viewStateObserver).onChanged(MainViewState.OnSuccess(venues))
+        assertEquals(1, viewModel.compositeDisposable.size())
     }
 
     @Test
     fun showVenues_whenLoadError_shouldShowError() {
-        coroutineTestRule.testDispatcher.runBlockingTest {
-            whenever(useCase.execute("kopi")).thenThrow(
-                HttpException(Response.error<List<VenueViewObject>>(500, "Error".toResponseBody()))
-            )
+        val testScheduler = TestScheduler()
+        whenever(scheduleProvider.io()).thenReturn(testScheduler)
+        whenever(scheduleProvider.mainThread()).thenReturn(testScheduler)
 
-            viewModel.showVenues()
+        whenever(useCase.execute("kopi")).thenReturn(
+            Single.error(HttpException(Response.error<List<VenueViewObject>>(500, "Error".toResponseBody())))
+        )
 
-            val inOrder = inOrder(viewStateObserver)
-            inOrder.verify(viewStateObserver).onChanged(MainViewState.OnLoading)
-            inOrder.verify(viewStateObserver).onChanged(MainViewState.OnError)
-        }
+        viewModel.showVenues()
+        testScheduler.triggerActions()
+
+        val inOrder = inOrder(viewStateObserver)
+        inOrder.verify(viewStateObserver).onChanged(MainViewState.OnLoading)
+        inOrder.verify(viewStateObserver).onChanged(MainViewState.OnError)
+    }
+
+    @Test
+    fun onDestroy_shouldClearCompositeDisposable() {
+        val obs = just("a").subscribe()
+        viewModel.compositeDisposable.add(obs)
+        viewModel.onDestroy()
+        assertEquals(0, viewModel.compositeDisposable.size())
     }
 }

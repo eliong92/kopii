@@ -1,5 +1,6 @@
 package com.eliong92.kopii.viewModel
 
+import com.eliong92.kopii.network.IScheduleProvider
 import com.eliong92.kopii.usecase.IGetVenueUseCase
 import dagger.Module
 import dagger.Provides
@@ -9,8 +10,9 @@ class MainViewModelModule {
 
     @Provides
     fun provideViewModelProvider(
-        useCase: IGetVenueUseCase
+        useCase: IGetVenueUseCase,
+        scheduleProvider: IScheduleProvider
     ): MainViewModelProvider {
-        return MainViewModelProvider(useCase)
+        return MainViewModelProvider(useCase, scheduleProvider)
     }
 }

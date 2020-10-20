@@ -1,26 +1,38 @@
 package com.eliong92.kopii.viewModel
 
+import androidx.annotation.VisibleForTesting
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.eliong92.kopii.network.IScheduleProvider
 import com.eliong92.kopii.usecase.IGetVenueUseCase
-import kotlinx.coroutines.launch
-import retrofit2.HttpException
+import io.reactivex.rxjava3.disposables.CompositeDisposable
 
 class MainViewModel(
-    private val useCase: IGetVenueUseCase
-) : ViewModel() {
+    private val useCase: IGetVenueUseCase,
+    private val scheduleProvider: IScheduleProvider
+) : ViewModel(), IMainViewModel {
     val viewState = MutableLiveData<MainViewState>()
+    @VisibleForTesting val compositeDisposable = CompositeDisposable()
 
-    fun showVenues() {
-        viewModelScope.launch {
-            viewState.value = MainViewState.OnLoading
-            try {
-                val venues = useCase.execute("kopi")
+    override fun showVenues() {
+        compositeDisposable.add(useCase.execute("kopi")
+            .subscribeOn(scheduleProvider.io())
+            .observeOn(scheduleProvider.mainThread())
+            .doOnSubscribe { viewState.value = MainViewState.OnLoading }
+            .subscribe({ venues ->
                 viewState.value = MainViewState.OnSuccess(venues)
-            } catch (e: HttpException) {
+            }, {
                 viewState.value = MainViewState.OnError
-            }
-        }
+            })
+        )
+    }
+
+    override fun onDestroy() {
+        compositeDisposable.clear()
+    }
+
+    override fun getState(): LiveData<MainViewState> {
+        return viewState
     }
 }

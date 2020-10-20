@@ -13,7 +13,8 @@ import javax.inject.Singleton
     NetworkModule::class,
     ActivityBuilder::class,
     UseCaseModule::class,
-    RepositoryModule::class
+    RepositoryModule::class,
+    AppModule::class
 ])
 interface AppComponent {
     @Component.Builder

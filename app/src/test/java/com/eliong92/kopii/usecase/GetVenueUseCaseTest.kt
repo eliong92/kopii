@@ -4,10 +4,10 @@ import com.eliong92.kopii.model.Venue
 import com.eliong92.kopii.model.VenueDetail
 import com.eliong92.kopii.model.VenueDetailResponse
 import com.eliong92.kopii.model.VenueResponse
+import com.eliong92.kopii.repository.ILocationRepository
 import com.eliong92.kopii.repository.IVenueRepository
 import com.nhaarman.mockitokotlin2.whenever
-import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
+import io.reactivex.rxjava3.core.Single
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
@@ -20,15 +20,20 @@ class GetVenueUseCaseTest {
     @Mock
     lateinit var venueRepository: IVenueRepository
 
+    @Mock
+    lateinit var locationRepository: ILocationRepository
+
     @Before
     fun setup() {
         MockitoAnnotations.initMocks(this)
-        useCase = GetVenueUseCase(venueRepository)
+        useCase = GetVenueUseCase(venueRepository, locationRepository)
     }
 
     @Test
-    fun execute_shouldMapResponseToVenueViewObject() = runBlocking {
+    fun execute_shouldMapResponseToVenueViewObject() {
         val query = "kopi"
+        val latitude = 89.0
+        val longitude = -19.98
         val response = VenueResponse(
             response = VenueResponse.Response(
                 venues = listOf(
@@ -63,32 +68,37 @@ class GetVenueUseCaseTest {
             )
         )
 
-        whenever(venueRepository.getVenues(query)).thenReturn(response)
+        whenever(locationRepository.getCurrentLocation()).thenReturn(Single.just(Pair(latitude, longitude)))
+        whenever(venueRepository.getVenues(query, latitude, longitude)).thenReturn(Single.just(response))
         whenever(venueRepository.getVenueDetail("1")).thenReturn(
-            VenueDetailResponse(
-                VenueDetailResponse.Response(
-                    VenueDetail(
-                        id = "1",
-                        name = "Kopi Takkie",
-                        rating = 8.9
+            Single.just(
+                VenueDetailResponse(
+                    VenueDetailResponse.Response(
+                        VenueDetail(
+                            id = "1",
+                            name = "Kopi Takkie",
+                            rating = 8.9
+                        )
                     )
                 )
             )
         )
         whenever(venueRepository.getVenueDetail("2")).thenReturn(
-            VenueDetailResponse(
-                VenueDetailResponse.Response(
-                    VenueDetail(
-                        id = "2",
-                        name = "Kopi ABC",
-                        rating = 10.0
+            Single.just(
+                VenueDetailResponse(
+                    VenueDetailResponse.Response(
+                        VenueDetail(
+                            id = "2",
+                            name = "Kopi ABC",
+                            rating = 10.0
+                        )
                     )
                 )
             )
         )
 
-        val venues = useCase.execute(query)
-
-        assertEquals(expectedViewObject, venues)
+        useCase.execute(query).test()
+            .assertValue(expectedViewObject)
+            .dispose()
     }
 }
